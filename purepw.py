@@ -14,19 +14,42 @@
 
 import bcrypt
 
+from collections import OrderedDict
+
 def main():
     module = AnsibleModule(
         argument_spec = dict(
             state     = dict(default='present', choices=['present', 'absent']),
             name      = dict(required=True, type='str'),
-            password  = dict(required=False, type='str'),
-            path      = dict(required=False, type='path'),
-            uid       = dict(required=False, type='str'),
-            gid       = dict(required=False, type='str'),
+            password  = dict(required=False, type='str', default=''),
+            home_directory = dict(required=False, type='path', default=''),
+            uid       = dict(required=False, type='str', default=''),
+            gid       = dict(required=False, type='str', default=''),
             passwdfile = dict(required=False, default='/etc/pure-ftpd/pureftpd.passwd', type='str')
         ),
         supports_check_mode=True
     )
+
+    account = OrderedDict((
+        ('account', module.params['name']),
+        ('password', None),
+        ('uid', module.params['uid']),
+        ('gid', module.params['gid']),
+        ('gecos', ''),
+        ('home_directory', module.params['home_directory']+'./'),
+        ('upload_bandwidth', ''),
+        ('download_bandwidth', ''),
+        ('upload_ratio', ''),
+        ('download_ratio', ''),
+        ('max_number_of_connections', ''),
+        ('files_quota', ''),
+        ('size_quota', ''),
+        ('authorized_local_ips', ''),
+        ('refused_local_ips', ''),
+        ('authorized_client_ips', ''),
+        ('refused_client_ips', ''),
+        ('time_restrictions', '')
+    ))
 
     if module.check_mode:
         module.exit_json(changed=check_if_system_state_would_be_changed())
@@ -35,10 +58,9 @@ def main():
     hashed_password = bcrypt.hashpw(module.params['password'], salt)
 
     #module.fail_json(msg="Something fatal happened")
+    account['password'] = hashed_password
 
-    line=module.params['name']+':'+hashed_password+':'+module.params['uid']+':'+module.params['gid']+':'+':'+module.params['path']+'./'+'::::::::::::'+"\n"
-
-    module.append_to_file(module.params['passwdfile'], line)
+    module.append_to_file(module.params['passwdfile'], ':'.join(account.itervalues()) + "\n")
 
     rc, stdout, stderr = module.run_command('pure-pw mkdb /tmp/test.db -f '+module.params['passwdfile'],check_rc=True)
 

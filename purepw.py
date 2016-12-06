@@ -10,7 +10,14 @@
 DOCUMENTATION = '''
 ---
 module: purepw
-short_description: manage pureftpd virtual users.
+author: Vincent Reydet
+short_description: Manage pureftpd virtual users.
+requirements:
+    - bcrypt
+options:
+    name:
+        description: account name
+        required: true
 '''
 
 EXAMPLES = '''
@@ -30,7 +37,11 @@ status:
     sample: "updated"
 '''
 
-import bcrypt
+try:
+    import bcrypt
+    has_bcrypt = True
+except:
+    has_bcrypt = False
 
 from collections import OrderedDict
 import os
@@ -90,7 +101,8 @@ def main():
         ('time_restrictions', '')
     ))
 
-    #module.fail_json(msg="Something fatal happened")
+    if not has_bcrypt:
+        module.fail_json(msg='Missing required bcrypt module (check docs)')
 
     #Check if database already exist
     if os.path.isfile(module.params['passwdfile']):

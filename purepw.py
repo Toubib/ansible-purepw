@@ -10,11 +10,35 @@
 #
 #TEST: ansible@puppet:~/git/ansible-purepw$ ../ansible/hacking/test-module -m ./purepw.py -a 'password=test2 name=test2 passwdfile=/tmp/test1.pwd uid=33 gid=33 home_directory=/home/ftp/test1 salt="$2a$12$meXQDD3hW/uEiwmN0SoHu"'
 
-
 import bcrypt
 
 from collections import OrderedDict
 import os
+
+
+def build_config_line(account, current_hashed_password, new_password):
+    #keep current hashed password if same
+    if current_hashed_password \
+      and bcrypt.hashpw(new_password, current_hashed_password) == current_hashed_password:
+        account['password'] = current_hashed_password
+    else:
+        #or make a new hash
+        account['password'] = bcrypt.hashpw(new_password, bcrypt.gensalt())
+
+    #config line with password
+    return ':'.join(account.itervalues())
+
+
+def check_if_system_state_would_be_changed():
+    changed = False
+    return changed
+
+
+def mkdb(module):
+    rc, stdout, stderr = module.run_command('pure-pw mkdb '+module.params['dbfile']+' -f '+module.params['passwdfile'],check_rc=True)
+    return rc
+
+
 
 def main():
     module = AnsibleModule(
@@ -22,11 +46,11 @@ def main():
             state     = dict(default='present', choices=['present', 'absent']),
             name      = dict(required=True, type='str'),
             password  = dict(required=False, type='str', default=''),
-            salt      = dict(required=False, type='str', default=bcrypt.gensalt()),
             home_directory = dict(required=False, type='path', default=''),
             uid       = dict(required=False, type='str', default=''),
             gid       = dict(required=False, type='str', default=''),
-            passwdfile = dict(required=False, default='/etc/pure-ftpd/pureftpd.passwd', type='str')
+            passwdfile = dict(required=False, default='/etc/pure-ftpd/pureftpd.passwd', type='str'),
+            dbfile = dict(required=False, default='/etc/pure-ftpd/pureftpd.pdb', type='str')
         ),
         supports_check_mode=True
     )
@@ -55,12 +79,7 @@ def main():
     if module.check_mode:
         module.exit_json(changed=check_if_system_state_would_be_changed())
 
-    hashed_password = bcrypt.hashpw(module.params['password'], module.params['salt'])
-
     #module.fail_json(msg="Something fatal happened")
-    account['password'] = hashed_password
-
-    account_config_line = ':'.join(account.itervalues())
 
     #Check if database already exist
     if os.path.isfile(module.params['passwdfile']):
@@ -71,13 +90,17 @@ def main():
         lines = f.readlines()
 
         for line in lines:
-            #check if account is already well configured
-            if line == account_config_line+"\n": #nothing to do
-                f.close
-                module.exit_json(changed=False)
+            #check if account is already present
+            if line.startswith(module.params['name']+':'):
 
-            #check if account is already present with other parameters
-            elif line.startswith(module.params['name']+':'):
+                account_config_line = build_config_line(account, line.split(':')[1], module.params['password'])
+
+                #if same line than current, exit
+                if line == account_config_line+"\n": #nothing to do
+                    f.close
+                    module.exit_json(changed=False)
+
+                #if not, update
                 f.seek(0)
                 for l in lines:
                   if l.startswith(module.params['name']+':'):
@@ -87,23 +110,22 @@ def main():
                 f.truncate()
                 f.close
 
-                rc, stdout, stderr = module.run_command('pure-pw mkdb /tmp/test.db -f '+module.params['passwdfile'],check_rc=True)
+                mkdb(module)
+
                 module.exit_json(changed=True, status='updated')
 
         f.close
 
 
     #account not already present or file is new
+    account_config_line = build_config_line(account, None, module.params['password'])
+
     module.append_to_file(module.params['passwdfile'], account_config_line+"\n")
 
-    rc, stdout, stderr = module.run_command('pure-pw mkdb /tmp/test.db -f '+module.params['passwdfile'],check_rc=True)
+    mkdb(module)
 
     module.exit_json(changed=True, status='newline')
 
-
-def check_if_system_state_would_be_changed():
-    changed = False
-    return changed
 
 from ansible.module_utils.basic import AnsibleModule
 if __name__ == '__main__':

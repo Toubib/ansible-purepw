@@ -1,14 +1,34 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
-# Files storing virtual users have one line per user. These lines have the following syntax:
-#
 #<account>:<password>:<uid>:<gid>:<gecos>:<home directory>:<upload bandwidth>:
 #<download bandwidth>:<upload ratio>:<download ratio>:<max number of connections>:
 #<files quota>:<size quota>:<authorized local IPs>:<refused local IPs>:
 #<authorized client IPs>:<refused client IPs>:<time restrictions>
 #
-#TEST: ansible@puppet:~/git/ansible-purepw$ ../ansible/hacking/test-module -m ./purepw.py -a 'password=test2 name=test2 passwdfile=/tmp/test1.pwd uid=33 gid=33 home_directory=/home/ftp/test1 salt="$2a$12$meXQDD3hW/uEiwmN0SoHu"'
+
+DOCUMENTATION = '''
+---
+module: purepw
+short_description: manage pureftpd virtual users.
+'''
+
+EXAMPLES = '''
+- purepw:
+    name: john
+    password: W@rr|0r
+    uid: 33
+    gid: 33
+    home_directory: /home/ftp/john
+'''
+
+RETURN = '''
+status:
+    description: update status
+    returned: changed
+    type: string
+    sample: "updated"
+'''
 
 import bcrypt
 

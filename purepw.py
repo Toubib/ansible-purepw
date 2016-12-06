@@ -29,15 +29,9 @@ def build_config_line(account, current_hashed_password, new_password):
     return ':'.join(account.itervalues())
 
 
-def check_if_system_state_would_be_changed():
-    changed = False
-    return changed
-
-
 def mkdb(module):
     rc, stdout, stderr = module.run_command('pure-pw mkdb '+module.params['dbfile']+' -f '+module.params['passwdfile'],check_rc=True)
     return rc
-
 
 
 def main():
@@ -76,9 +70,6 @@ def main():
         ('time_restrictions', '')
     ))
 
-    if module.check_mode:
-        module.exit_json(changed=check_if_system_state_would_be_changed())
-
     #module.fail_json(msg="Something fatal happened")
 
     #Check if database already exist
@@ -101,6 +92,9 @@ def main():
                     module.exit_json(changed=False)
 
                 #if not, update
+    		if module.check_mode:
+        		module.exit_json(changed=True)
+
                 f.seek(0)
                 for l in lines:
                   if l.startswith(module.params['name']+':'):
@@ -117,7 +111,11 @@ def main():
         f.close
 
 
-    #account not already present or file is new
+    ## account not already present or file is new
+
+    if module.check_mode:
+        module.exit_json(changed=True)
+
     account_config_line = build_config_line(account, None, module.params['password'])
 
     module.append_to_file(module.params['passwdfile'], account_config_line+"\n")

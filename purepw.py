@@ -142,7 +142,7 @@ def main():
 
     mkdb(module)
 
-    module.exit_json(changed=True, status='newline')
+    module.exit_json(changed=True, status='new')
 
 
 from ansible.module_utils.basic import AnsibleModule

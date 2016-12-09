@@ -37,24 +37,28 @@ status:
     sample: "updated"
 '''
 
-try:
-    import bcrypt
-    has_bcrypt = True
-except:
-    has_bcrypt = False
+#try:
+#    import bcrypt
+#    has_bcrypt = True
+#except:
+#    has_bcrypt = False
 
 from collections import OrderedDict
 import os
-
+import random
+import crypt
 
 def build_config_line(account, current_hashed_password, new_password):
     #keep current hashed password if same
     if current_hashed_password \
-      and bcrypt.hashpw(new_password, current_hashed_password) == current_hashed_password:
+      and crypt.crypt(new_password, current_hashed_password) == current_hashed_password:
+      #and bcrypt.hashpw(new_password, current_hashed_password) == current_hashed_password:
         account['password'] = current_hashed_password
     else:
         #or make a new hash
-        account['password'] = bcrypt.hashpw(new_password, bcrypt.gensalt())
+        #account['password'] = bcrypt.hashpw(new_password, bcrypt.gensalt())
+        ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        account['password'] = crypt.crypt(new_password, '$1$'+''.join(random.choice(ALPHABET) for i in range(16)))
 
     #config line with password
     return ':'.join(account.itervalues())
@@ -101,8 +105,8 @@ def main():
         ('time_restrictions', '')
     ))
 
-    if not has_bcrypt:
-        module.fail_json(msg='Missing required bcrypt module (check docs)')
+    #if not has_bcrypt:
+#        module.fail_json(msg='Missing required bcrypt module (check docs)')
 
     #Check if database already exist
     if os.path.isfile(module.params['passwdfile']):

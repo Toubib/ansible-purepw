@@ -68,6 +68,16 @@ def mkdb(module):
     rc, stdout, stderr = module.run_command('pure-pw mkdb '+module.params['dbfile']+' -f '+module.params['passwdfile'],check_rc=True)
     return rc
 
+def mk_home_directory(module):
+
+    #Add a trailing slash
+    home_directory = os.path.join(module.params['home_directory'], '')
+
+    #Add chroot
+    if module.params['chroot']:
+      home_directory += './'
+
+    return home_directory
 
 def main():
     module = AnsibleModule(
@@ -76,6 +86,7 @@ def main():
             name      = dict(required=True, type='str'),
             password  = dict(required=False, type='str', default=''),
             home_directory = dict(required=False, type='path', default=''),
+            chroot    = dict(required=False, type='bool', default=True),
             uid       = dict(required=False, type='str', default=''),
             gid       = dict(required=False, type='str', default=''),
             passwdfile = dict(required=False, default='/etc/pure-ftpd/pureftpd.passwd', type='str'),
@@ -84,13 +95,14 @@ def main():
         supports_check_mode=True
     )
 
+
     account = OrderedDict((
         ('account', module.params['name']),
         ('password', None),
         ('uid', module.params['uid']),
         ('gid', module.params['gid']),
         ('gecos', ''),
-        ('home_directory', module.params['home_directory']+'./'),
+        ('home_directory', mk_home_directory(module)),
         ('upload_bandwidth', ''),
         ('download_bandwidth', ''),
         ('upload_ratio', ''),
